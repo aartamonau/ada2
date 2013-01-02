@@ -26,10 +26,7 @@ readInput path = do
 
 knapsack :: (Weight, Int, Items) -> Value
 knapsack (maxWeight, n, items) = k' n maxWeight
-  where k _ 0 = 0
-        k 1 w
-          | weight 1 <= w = value 1
-          | otherwise     = 0
+  where k 0 _ = 0
         k i w
           | weight i <= w = max (k' (i - 1) w) (k' (i - 1) (w - weight i) + value i)
           | otherwise     = k' (i - 1) w
@@ -41,14 +38,11 @@ knapsack (maxWeight, n, items) = k' n maxWeight
 
 knapsack2 :: (Weight, Int, Items) -> Value
 knapsack2 (maxWeight, n, items) = knot ! (n, maxWeight)
-  where knot = array ((1, 0), (n, maxWeight)) ks
+  where knot = array ((0, 0), (n, maxWeight)) ks
 
-        ks = [ ((i, 0), 0) | i <- [1..n] ] ++
-             [ ((1, w), n1 w) | w <- [1..maxWeight] ] ++
-             [ ((i, w), k i w) | i <- [2..n], w <- [1..maxWeight] ]
+        ks = [ ((0, w), 0) | w <- [0..maxWeight] ] ++
+             [ ((i, w), k i w) | i <- [1..n], w <- [0..maxWeight] ]
 
-        n1 w | weight 1 <= w = value 1
-             | otherwise     = 0
         k i w
           | weight i <= w = max (knot ! (i - 1, w))
                                 (knot ! (i - 1, w - weight i) + value i)
@@ -61,10 +55,7 @@ knapsack2 (maxWeight, n, items) = knot ! (n, maxWeight)
 knapsack3 :: (Weight, Int, Items) -> Value
 knapsack3 (maxWeight, n, items) = evalState (kMemo n maxWeight) Map.empty
   where kMemo :: Int -> Weight -> State (Map (Int, Weight) Value) Value
-        kMemo _ 0 = return 0
-        kMemo 1 w
-          | weight 1 <= w = return $ value 1
-          | otherwise     = return 0
+        kMemo 0 _ = return 0
         kMemo i w = do
           cached <- getCached i w
           case cached of
