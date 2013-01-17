@@ -77,5 +77,22 @@ bellmanFord g s = go 1 initialDs
           | otherwise = go (i + 1) ds'
             where ds' = iter ds
 
+johnsonReweight :: Gr a Weight -> (Gr a Weight, IntMap Weight)
+johnsonReweight g = (G.gmap mapContext g, IntMap.delete fakeNode ps)
+  where (_, maxNode) = G.nodeRange g
+        fakeNode = maxNode + 1
+        nodes = G.nodes g
+        fakeEdges = [(fakeNode, n, 0) | n <- nodes]
+        g' = G.insEdges fakeEdges (G.insNode (fakeNode, undefined) g)
+
+        ps = bellmanFord g' fakeNode
+        mapWeight (u, v, w) = w + pu - pv
+          where pu = fromJust $ IntMap.lookup u ps
+                pv = fromJust $ IntMap.lookup v ps
+
+        mapContext (inn, n, l, out) = (inn', n, l, out')
+          where inn' = [(mapWeight (u, n, w), u) | (w, u) <- inn]
+                out' = [(mapWeight (n, v, w), v) | (w, v) <- out]
+
 main :: IO ()
 main = undefined
