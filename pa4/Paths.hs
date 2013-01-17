@@ -1,6 +1,7 @@
 {-# LANGUAGE ViewPatterns #-}
 
 import Data.List (foldl')
+import Data.Maybe (fromJust)
 
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap
@@ -51,6 +52,30 @@ dijkstra g s = go initialPsq IntMap.empty
                 psq'' = foldl' k psq' out
                 r' = (IntMap.insert cur d r)
         go (PSQ.minView -> Just (_, _)) _ = undefined
+
+bellmanFord :: Gr a Weight -> Node -> IntMap Weight
+bellmanFord g s = go 1 initialDs
+  where initialDs = IntMap.fromList initialList
+        initialList = [(n, w) | n <- G.nodes g, let w | n == s = 0
+                                                      | otherwise = maxBound]
+
+        find k = fromJust . IntMap.lookup k
+        nodesCount = G.noNodes g
+
+        iter ds = IntMap.mapWithKey update ds
+          where update n d = minimum (d : inn)
+                  where inn = [d' | (u, _, w) <- G.inn g n,
+                               let ud = find u ds,
+                               let d' | ud == maxBound = maxBound
+                                      | otherwise = w + ud]
+
+        go i ds
+          | i == nodesCount = assertError (ds == ds')
+                                          "the graph has negative weight loops"
+                                          ds
+          | ds == ds' = ds
+          | otherwise = go (i + 1) ds'
+            where ds' = iter ds
 
 main :: IO ()
 main = undefined
