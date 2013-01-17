@@ -94,5 +94,14 @@ johnsonReweight g = (G.gmap mapContext g, IntMap.delete fakeNode ps)
           where inn' = [(mapWeight (u, n, w), u) | (w, u) <- inn]
                 out' = [(mapWeight (n, v, w), v) | (w, v) <- out]
 
+johnson :: Gr a Weight -> IntMap (IntMap Weight)
+johnson g = IntMap.fromList [(n, unreweight n (dijkstra g' n)) | n <- G.nodes g]
+  where (g', ps) = johnsonReweight g
+        unreweight u ds = IntMap.mapWithKey k ds
+          where k v w | w == maxBound = maxBound
+                      | otherwise     = w - pu + pv
+                  where pv = fromJust $ IntMap.lookup v ps
+                pu = fromJust $ IntMap.lookup u ps
+
 main :: IO ()
 main = undefined
