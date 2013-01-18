@@ -69,22 +69,20 @@ readGraph path = do
 dijkstra :: Gr a Weight -> Node -> IntMap Weight
 dijkstra g s = go initialPsq IntMap.empty
   where initialPsq :: PSQ Node Weight
-        initialPsq = PSQ.fromList [(n :-> w) | n <- G.nodes g,
-                                               let w | s == n = 0
-                                                     | otherwise = Inf]
+        initialPsq = PSQ.fromList [n :-> w | n <- G.nodes g,
+                                             let w | s == n = 0
+                                                   | otherwise = Inf]
 
         go :: PSQ Node Weight -> IntMap Weight -> IntMap Weight
         go (PSQ.minView -> Nothing) r = r
         go (PSQ.minView -> Just (cur :-> d, psq')) r = go psq'' r'
-          where adjust new old | old <= new = Nothing
-                               | otherwise  = Just new
-
+          where adjust new old = Just $ min new old
                 out = [assertError (w >= 0) "got negative weight edge" (v, w) |
                        (_, v, w) <- G.out g cur]
                 k p (v, w) = PSQ.update (adjust (w + d)) v p
 
                 psq'' = foldl' k psq' out
-                r' = (IntMap.insert cur d r)
+                r' = IntMap.insert cur d r
 
 bellmanFord :: Gr a Weight -> Node -> IntMap Weight
 bellmanFord g s = go 1 initialDs
