@@ -12,7 +12,41 @@ import qualified Data.Graph.Inductive as G
 import Data.FingerTree.PSQueue (PSQ, Binding ((:->)))
 import qualified Data.FingerTree.PSQueue as PSQ
 
-type Weight = Int
+import System.Environment (getArgs)
+
+data Weight = Finite !Int | Inf
+            deriving Eq
+
+instance Read Weight where
+  readsPrec p s = [(Finite n, rest)]
+    where [(n, rest)] = readsPrec p s
+
+instance Show Weight where
+  show (Finite n) = show n
+  show Inf        = "inf"
+
+instance Num Weight where
+  Finite x + Finite y = Finite (x + y)
+  Inf + Finite _ = Inf
+  Finite _ + Inf = Inf
+  Inf + Inf = Inf
+
+  Finite x - Finite y = Finite (x - y)
+  Inf - Finite _ = Inf
+  Finite _ - Inf = Inf
+  _ - _ = error "unsupported (inf - inf)"
+
+  _ * _ = error "unsupported (*)"
+
+  abs = error "unsupported (abs)"
+  signum = error "unsupported (signum)"
+  fromInteger = Finite . fromInteger
+
+instance Ord Weight where
+  compare (Finite x) (Finite y) = compare x y
+  compare Inf (Finite _) = GT
+  compare (Finite _) Inf = LT
+  compare Inf Inf = EQ
 
 assertError :: Bool -> String -> a -> a
 assertError True _ v = v
@@ -37,7 +71,7 @@ dijkstra g s = go initialPsq IntMap.empty
   where initialPsq :: PSQ Node Weight
         initialPsq = PSQ.fromList [(n :-> w) | n <- G.nodes g,
                                                let w | s == n = 0
-                                                     | otherwise = maxBound]
+                                                     | otherwise = Inf]
 
         go :: PSQ Node Weight -> IntMap Weight -> IntMap Weight
         go (PSQ.minView -> Nothing) r = r
@@ -51,23 +85,20 @@ dijkstra g s = go initialPsq IntMap.empty
 
                 psq'' = foldl' k psq' out
                 r' = (IntMap.insert cur d r)
-        go (PSQ.minView -> Just (_, _)) _ = undefined
 
 bellmanFord :: Gr a Weight -> Node -> IntMap Weight
 bellmanFord g s = go 1 initialDs
   where initialDs = IntMap.fromList initialList
         initialList = [(n, w) | n <- G.nodes g, let w | n == s = 0
-                                                      | otherwise = maxBound]
+                                                      | otherwise = Inf]
 
         find k = fromJust . IntMap.lookup k
         nodesCount = G.noNodes g
 
         iter ds = IntMap.mapWithKey update ds
           where update n d = minimum (d : inn)
-                  where inn = [d' | (u, _, w) <- G.inn g n,
-                               let ud = find u ds,
-                               let d' | ud == maxBound = maxBound
-                                      | otherwise = w + ud]
+                  where inn = [w + ud | (u, _, w) <- G.inn g n,
+                               let ud = find u ds]
 
         go i ds
           | i == nodesCount = assertError (ds == ds')
@@ -98,8 +129,7 @@ johnson :: Gr a Weight -> IntMap (IntMap Weight)
 johnson g = IntMap.fromList [(n, unreweight n (dijkstra g' n)) | n <- G.nodes g]
   where (g', ps) = johnsonReweight g
         unreweight u = IntMap.mapWithKey k
-          where k v w | w == maxBound = maxBound
-                      | otherwise     = w - pu + pv
+          where k v w = w - pu + pv
                   where pv = fromJust $ IntMap.lookup v ps
                 pu = fromJust $ IntMap.lookup u ps
 
@@ -117,7 +147,7 @@ floydWarshall g = go nodes initial'
         initial = foldl' (flip insert) IntMap.empty
                          [(u, v, w) | u <- nodes, v <- nodes,
                                       let w | u == v = 0
-                                            | otherwise = maxBound]
+                                            | otherwise = Inf]
         initial' = foldl' (flip insert) initial edges
 
         checkLoops m = assertError noLoops "the graph has negative weight loops" m
@@ -128,9 +158,7 @@ floydWarshall g = go nodes initial'
                                       let oldW = lookup (u, v) m,
                                       let wuk  = lookup (u, k) m,
                                       let wkv  = lookup (k, v) m,
-                                      let altW | wuk == maxBound ||
-                                                 wkv == maxBound = maxBound
-                                               | otherwise = wuk + wkv,
+                                      let altW = wuk + wkv,
                                       let newW = min oldW altW]
 
         go [] m = checkLoops m
