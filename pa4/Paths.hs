@@ -97,11 +97,44 @@ johnsonReweight g = (G.gmap mapContext g, IntMap.delete fakeNode ps)
 johnson :: Gr a Weight -> IntMap (IntMap Weight)
 johnson g = IntMap.fromList [(n, unreweight n (dijkstra g' n)) | n <- G.nodes g]
   where (g', ps) = johnsonReweight g
-        unreweight u ds = IntMap.mapWithKey k ds
+        unreweight u = IntMap.mapWithKey k
           where k v w | w == maxBound = maxBound
                       | otherwise     = w - pu + pv
                   where pv = fromJust $ IntMap.lookup v ps
                 pu = fromJust $ IntMap.lookup u ps
+
+floydWarshall :: Gr a Weight -> IntMap (IntMap Weight)
+floydWarshall g = go nodes initial'
+  where nodes = G.nodes g
+        edges = G.labEdges g
+
+        insert (u, v, w) = IntMap.insertWith nested u def
+          where nested _ = IntMap.insert v w
+                def = IntMap.singleton v w
+
+        lookup (u, v) m = fromJust $ IntMap.lookup v (fromJust (IntMap.lookup u m))
+
+        initial = foldl' (flip insert) IntMap.empty
+                         [(u, v, w) | u <- nodes, v <- nodes,
+                                      let w | u == v = 0
+                                            | otherwise = maxBound]
+        initial' = foldl' (flip insert) initial edges
+
+        checkLoops m = assertError noLoops "the graph has negative weight loops" m
+          where noLoops = all (>=0) (map (`lookup` m) [(n, n) | n <- nodes])
+
+        iter k m = foldl' (flip insert) IntMap.empty new
+          where new = [(u, v, newW) | u <- nodes, v <- nodes,
+                                      let oldW = lookup (u, v) m,
+                                      let wuk  = lookup (u, k) m,
+                                      let wkv  = lookup (k, v) m,
+                                      let altW | wuk == maxBound ||
+                                                 wkv == maxBound = maxBound
+                                               | otherwise = wuk + wkv,
+                                      let newW = min oldW altW]
+
+        go [] m = checkLoops m
+        go (n : ns) m = go ns (iter n m)
 
 main :: IO ()
 main = undefined
