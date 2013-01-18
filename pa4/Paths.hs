@@ -164,5 +164,18 @@ floydWarshall g = go nodes initial'
         go [] m = checkLoops m
         go (n : ns) m = go ns (iter n m)
 
+algo :: String -> (Gr a Weight -> IntMap (IntMap Weight))
+algo "fw" = floydWarshall
+algo "johnson" = johnson
+
 main :: IO ()
-main = undefined
+main = do
+  [algoStr, path] <- getArgs
+  graph <- readGraph path
+
+  let ds = algo algoStr graph
+  let md = minD $ IntMap.map minD ds
+
+  print md
+
+  where minD = IntMap.fold min Inf
